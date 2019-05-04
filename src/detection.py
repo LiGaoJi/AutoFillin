@@ -1,8 +1,8 @@
 import cv2
 
-src_size = (400, 600) # w * h
-temp_size = (20, 38)
-#distance_thresh = 330
+src_size = (800, 1600)  # w * h
+temp_size = (28, 28)
+# distance_thresh = 330
 
 # Go through the pixels 
 # Calculate Hamming distance
@@ -19,19 +19,27 @@ def CalDistance(img1, img2):
 # TODO check the number of contours
 def Cut_fig(fig_img):
     gray = cv2.cvtColor(fig_img, cv2.COLOR_BGR2GRAY)
-    thresh = cv2.adaptiveThreshold(gray,255,1,1,11,2)
+    thresh = cv2.adaptiveThreshold(gray, 255, 1, 1, 11, 2)
     contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
 
     digits_dict = {}
     for cnt in contours:
-            [x, y, w, h] = cv2.boundingRect(cnt)
-            #cv2.rectangle(dst_img, (x, y), (x+w, y+h), (0, 255, 0), 1)
+        [x, y, w, h] = cv2.boundingRect(cnt)
+        # print("w:" + str(w))
+        # print("h:" + str(h))
+        if h > 10:
+            cv2.rectangle(fig_img, (x, y), (x+w, y+h), (0, 255, 0), 1)
             roi = thresh[y:y+h, x:x+w]
             roismall = cv2.resize(roi, temp_size)   
             # store X-Coordinates and the rect to sort
             digits_dict[x] = roismall
     # sort the figures according to X-Coordinates
     digits_list = sorted(digits_dict.items(), key=lambda x:x[0])
+
+
+    #print("contours len: " + str(len(contours)))
+    # cv2.imshow("fig_img", fig_img)
+    #cv2.waitKey(0)
 
     digits = {}
     for i in range(len(digits_list)):
@@ -43,12 +51,13 @@ def Cut_fig(fig_img):
 # Return a dictionary for id_number and step_number
 # TODO give it a function to detect numbers
 def Detect(rect, templates):
-    if rect.shape[0] not in range(45, 55):
-        print("incorrect rect height: " + str(rect.shape[0]))
+    # if rect.shape[0] not in range(135, 150):
+        # print("incorrect rect height: " + str(rect.shape[0]))
 
-    id_img = rect[:int(rect.shape[0]/2) , :81]
-    step_img = rect[int(rect.shape[0]/2): , :64]
+    id_img = rect[:int(rect.shape[0]/2), :]
+    step_img = rect[int(rect.shape[0]/2):, :]
 
+    # cv2.imshow("rect", rect)
     # cv2.imshow("id_img", id_img)
     # cv2.imshow("step_img", step_img)
 
@@ -58,7 +67,7 @@ def Detect(rect, templates):
 
     # print("id_figures len: " + str(len(id_figures)))
     # print("step_figures len: " + str(len(step_figures)))
-    
+
     # Store detected numbers
     id_number = ""
     step_number = ""
@@ -74,9 +83,7 @@ def Detect(rect, templates):
                 index = j
 
         id_number += str(index)
-    if len(id_number) != 9:
-        print("incorrect id_number: " + id_number + " " + str(len(id_number)) )
-
+        
     # Detect step_numbers
     for i in range(len(step_figures)):
         min_distance = temp_size[0] * temp_size[1]
@@ -88,24 +95,41 @@ def Detect(rect, templates):
                 index = j
 
         step_number += str(index)
-    if len(step_number) not in [3, 4, 5]:
-        print("incorrect step_number: " + step_number + " " + str(len(step_number)))  
+    id_number.lstrip("0");
+    step_number.lstrip("0");
 
+    # print("step_number: " + step_number)
+    # print("id_number: " + id_number)
+
+    if len(step_number) not in (4, 5):
+        print("incorrect step_number: " + step_number + " " + str(len(step_number)))
+        step_number = "-1" 
+    if len(id_number) != 9:
+        print("incorrect id_number: " + id_number + " " + str(len(id_number)) )
+        id_number = "-1" 
+    elif id_number[0] != "1":
+        print("incorrect id_number: " + id_number)   
+        id_number = "-1"
     # dictionary whose first key is "id_number" and the second is "step_number"
-    return dict([("id_number", eval(id_number) ) , ("step_number", eval(step_number) )  ])
+    return dict([("id_number", eval(id_number) ) , ("step_number", eval(step_number) ) ])
 
 # Overall detection function
 # Param1: divided rectangles
 # Param2: template figures
-def Run(rects, templates):
+def DetecRun(rects, templates):
     if len(templates) != 10:
         print("invalid template length: " + str(len(templates))) 
     # Store detected numbers, each element is a dict
     numbers = []
+    
+    if len(rects) != 1:
+        for i in range(len(rects)):
+            _dict = Detect(rects[i], templates)
+            if -1 not in list(_dict.values()):
+                numbers.append( _dict )
 
-    for i in range(len(rects)):
-        numbers.append( Detect(rects[i], templates) )
+#   check elements in numbers
 
-    print("numbers length: " + str(len(numbers) ) )
-
+    # print("numbers length: " + str(len(numbers) ) )
+        
     return numbers
